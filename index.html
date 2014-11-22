@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Algorithms Visualization</title>
+<link rel="stylesheet" href="style.css"></link>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.13/d3.min.js"></script>
+
+<h2><a href="#shuffling" name="shuffling">#</a>Shuffling</h2>
+
+<p>Shuffling is the process of rearranging an array of elements randomly. For example, you might shuffle a deck of cards before dealing a poker game. A good shuffling algorithm is unbiased, where every ordering is equally likely.
+
+<p>The Fisher–Yates shuffle is an optimal shuffling algorithm. Not only is it unbiased, but it runs in linear time, uses constant space, and is easy to implement.
+
+<pre><code class="javascript">function shuffle(array) {
+  var n = array.length, t, i;
+  while (n) {
+    i = Math.random() * n-- | 0; // 0 ≤ i < n
+    t = array[n];
+    array[n] = array[i];
+    array[i] = t;
+  }
+  return array;
+}</code></pre>
+
+<p>Above is the code, and below is a visual explanation:
+
+<style>
+
+.shuffle .line {
+  stroke: #aaa;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  transition: all 500ms linear;
+}
+
+.shuffle .line--active {
+  stroke: #f00;
+  stroke-width: 3px;
+}
+
+.shuffle .line--inactive {
+  stroke: #000;
+}
+
+</style>
+<p id="fisher-yates-shuffle" class="animation shuffle"><script>(function() {
+
+var n = 120,
+    array = d3.range(n).map(function(d, i) { return {value: d, index: i}; });
+
+console.log(array);
+
+var margin = {top: 60, right: 60, bottom: 60, left: 60},
+    width = 960 - margin.left - margin.right,
+    height = 180 - margin.top - margin.bottom;
+
+var x = d3.scale.ordinal()
+    .domain(d3.range(n))
+    .rangePoints([0, width]);
+
+var a = d3.scale.linear()
+    .domain([0, n - 1])
+    .range([-45, 45]);
+
+var p = d3.select("#fisher-yates-shuffle")
+    .on("click", click);
+
+var svg = p.append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var line = svg.append("g")
+  .selectAll("line")
+    .data(array)
+  .enter().append("line")
+    .attr("class", "line line--inactive")
+    .attr("transform", transform)
+    .attr("y2", -height);
+
+p.append("button")
+    .text("▶ Play");
+
+whenFullyVisible(p.node(), click);
+
+function click() {
+  var swaps = shuffle(array.slice()).reverse(),
+      swapped = array.slice();
+
+  p
+      .classed("animation--playing", true);
+
+  line
+      .each(function(d, i) { d.index = i; })
+      .attr("transform", transform)
+      .attr("class", "line")
+      .interrupt();
+
+  (function nextTransition() {
+    var swap = swaps.pop(),
+        i = swap[0],
+        j = swap[1],
+        t;
+
+    t = swapped[i];
+    swapped[i] = swapped[j];
+    swapped[j] = t;
+    swapped[i].index = i;
+    swapped[j].index = j;
+
+    d3.selectAll([line[0][swapped[j].value], line[0][swapped[i].value]])
+        .attr("class", "line line--active")
+        .each(function() { this.parentNode.appendChild(this); })
+      .transition()
+        .duration(750)
+        .attr("transform", transform)
+        .each("end", function(d, i) {
+          d3.select(this).attr("class", i || swap[0] === swap[1] ? "line line--inactive" : "line");
+          if (i || swap[0] === swap[1]) {
+            if (swaps.length) nextTransition();
+            else p.classed("animation--playing", false);
+          }
+        });
+  })();
+}
+
+function transform(d) {
+  return "translate(" + x(d.index) + "," + height + ")rotate(" + a(d.value) + ")";
+}
+
+function shuffle(array) {
+  var swaps = [],
+      m = array.length,
+      t,
+      i;
+
+  while (m) {
+    i = Math.floor(Math.random() * m--);
+    t = array[m];
+    array[m] = array[i];
+    array[i] = t;
+    swaps.push([m, i]);
+  }
+
+  return swaps;
+}
+
+})()</script>
+
+<aside>For a more detailed explanation of this algorithm, see my post on the <a href="http://bost.ocks.org/mike/shuffle/">Fisher–Yates shuffle</a>.</aside>
+
+<p>Each line represents a number. Small numbers lean left and large numbers lean right. (Note that you can shuffle an array of anything — not just numbers — but this visual encoding is useful for showing the order of elements. It is inspired by <a href="http://www.cs.princeton.edu/~rs/">Robert Sedgwick</a>’s sorting visualizations in <i>Algorithms in C</i>.)
+
+<p>The algorithm splits the array into two parts: the right side of the array (in black) is the shuffled section, while the left side of the array (in gray) contains elements remaining to be shuffled. At each step it picks a random element from the left and moves it to the right, thereby expanding the shuffled section by one. The original order on the left does not need to be preserved, so to make room for the new element in the shuffled section, the algorithm can simply swap the element into place. Eventually all elements are shuffled, and the algorithm terminates.
